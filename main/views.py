@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.views.generic import TemplateView, DetalView
+from django.views.generic import TemplateView, DetailView
 from django.http import HttpResponse
 from django.template.response import TemplateResponse
 from .models import Category, Product, Size
@@ -10,7 +10,7 @@ class IndexView(TemplateView):
 
 
     def get_context_data(self, **kwargs):
-        content = super().get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
         context["categories"] = Category.objects.all()
         context["current_category"] = None
         return context
@@ -36,7 +36,7 @@ class CatalogView(TemplateView):
         context = super().get_context_data(**kwargs)
         category_slug = kwargs.get("category_slug")
         categories = Category.objects.all()
-        products = Product.object.all().order_by("-created_at")
+        products = Product.objects.all().order_by("-created_at")
         current_category = None
         if category_slug:
             current_category = get_object_or_404(Category, slug=category_slug)
@@ -48,18 +48,18 @@ class CatalogView(TemplateView):
             )
         filter_params = {}
         for param, filter_func in self.FILTER_MAPPING.items():
-            value = self.request.GET(param)
+            value = self.request.GET.get(param)
             if value:
                 products = filter_func(products, value)
                 filter_params[param] = value
             else:
-                filter_param[param] = ""
+                filter_params[param] = ""
         filter_params["q"] = query or ""
         context.update({
             "categories": categories,
             "products": products,
             "current_category": category_slug,
-            "filter_param": filter_param,
+            "filter_params": filter_params,
             "sizes": Size.objects.all(),
             "search_query": query or ""
         })
@@ -77,12 +77,12 @@ class CatalogView(TemplateView):
                 return TemplateResponse(request, "main/search_input.html", context)
             elif context.get("reset_search"):
                 return TemplateResponse(request, "main/search_button.html", [])
-            template = "main/filter_modal.html" if request.GET.get("show_filters") == "true" else "main/catalog"
+            template = "main/filter_modal.html" if request.GET.get("show_filters") == "true" else "main/catalog.html"
             return TemplateResponse(request, template, context)
         return TemplateResponse(request, self.template_name, context)
 
 
-class ProductDetailView(DetalView):
+class ProductDetailView(DetailView):
     model = Product
     template_name = "main/base.html"
     slug_field = "slug"
@@ -103,6 +103,6 @@ class ProductDetailView(DetalView):
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
         context = self.get_context_data(**kwargs)
-        if request.header.get("HX-Request"):
+        if request.headers.get("HX-Request"):
             return TemplateResponse(request, "main/product_detail.html", context)
-        raise TemplateResponse(request, self.template_name, context)
+        return TemplateResponse(request, self.template_name, context)
